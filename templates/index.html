@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChessIQ — A Study of Openings</title>
+    <meta name="description" content="An interactive ledger of chess opening popularity, player strength, and win/draw/loss patterns across thousands of games — visualised in 3D and traditional charts.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="ChessIQ — A Study of Openings">
+    <meta property="og:description" content="Explore opening popularity, rating bands, and the long arithmetic of wins, losses, and draws across thousands of chess games.">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Plotly must load before dashboard scripts -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"
+            integrity="sha384-Hl48Kq2HifOWdXEjMsKo6qxqvRLTYqIGbvlENBmkHAxZKIGCXv43H6W1jA671RzC"
+            crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <canvas id="particleCanvas" class="particle-canvas" aria-hidden="true"></canvas>
+    <div class="ambient-light ambient-light--1" aria-hidden="true"></div>
+    <div class="ambient-light ambient-light--2" aria-hidden="true"></div>
+
+    <div id="loader" class="loader">
+        <div class="loader-ring"></div>
+        <p>Arranging the board…</p>
+    </div>
+
+    <nav class="navbar glass-3d" id="navbar">
+        <a href="#hero" class="nav-brand">
+            <span class="brand-glow">♞</span>
+            <span>Chess<span class="brand-accent">IQ</span></span>
+        </a>
+        <button class="nav-toggle" id="navToggle" aria-label="Menu">☰</button>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="#hero">Overture</a></li>
+            <li><a href="#kpis">Ledger</a></li>
+            <li><a href="#charts">Analysis</a></li>
+            <li><a href="#insights">Commentary</a></li>
+        </ul>
+    </nav>
+
+    <main class="main">
+        <!-- HERO with Three.js -->
+        <section id="hero" class="hero">
+            <div id="heroCanvas" class="hero-canvas"></div>
+            <div class="hero-overlay glass-3d reveal">
+                <div class="hero-badge">A Study in Openings</div>
+                <h1 class="hero-title neon-text">The first ten moves, <em>charted in earnest.</em></h1>
+                <p class="hero-sub">An interactive ledger of opening popularity, player strength, and the long arithmetic of wins, losses, and draws across thousands of games.</p>
+                <div class="hero-actions">
+                    <a href="#charts" class="btn-neon">Open the Board</a>
+                    <span class="hero-count"><strong id="heroCount">{{ initial.count }}</strong> openings on the table</span>
+                </div>
+            </div>
+            <div class="hero-scroll">scroll to analysis ↓</div>
+        </section>
+
+        <!-- KPIs -->
+        <section id="kpis" class="section reveal">
+            <span class="section-eyebrow">I · The Ledger</span>
+            <h2 class="section-heading"><span class="section-icon">♚</span> A summary of the table</h2>
+            <p class="section-desc">The board, at a glance.</p>
+            <div class="kpi-grid">
+                <article class="kpi-card glass-3d tilt-card" data-tilt>
+                    <div class="kpi-glow"></div>
+                    <div class="kpi-icon pulse">♟</div>
+                    <p class="kpi-label">Openings catalogued</p>
+                    <p class="kpi-value" data-key="total_openings">0</p>
+                </article>
+                <article class="kpi-card glass-3d tilt-card" data-tilt>
+                    <div class="kpi-glow kpi-glow--purple"></div>
+                    <div class="kpi-icon pulse">♞</div>
+                    <p class="kpi-label">Games examined</p>
+                    <p class="kpi-value" data-key="total_games">0</p>
+                </article>
+                <article class="kpi-card glass-3d tilt-card" data-tilt>
+                    <div class="kpi-glow kpi-glow--green"></div>
+                    <div class="kpi-icon pulse">♔</div>
+                    <p class="kpi-label">White victory · mean</p>
+                    <p class="kpi-value" data-key="avg_white_win" data-suffix="%">0</p>
+                </article>
+                <article class="kpi-card glass-3d tilt-card" data-tilt>
+                    <div class="kpi-glow kpi-glow--red"></div>
+                    <div class="kpi-icon pulse">♚</div>
+                    <p class="kpi-label">Black victory · mean</p>
+                    <p class="kpi-value" data-key="avg_black_win" data-suffix="%">0</p>
+                </article>
+                <article class="kpi-card glass-3d tilt-card" data-tilt>
+                    <div class="kpi-glow kpi-glow--yellow"></div>
+                    <div class="kpi-icon pulse">½</div>
+                    <p class="kpi-label">Draw rate · mean</p>
+                    <p class="kpi-value" data-key="avg_draw" data-suffix="%">0</p>
+                </article>
+                <article class="kpi-card glass-3d tilt-card kpi-card--wide" data-tilt>
+                    <div class="kpi-glow"></div>
+                    <div class="kpi-icon pulse">♛</div>
+                    <p class="kpi-label">The reigning opening</p>
+                    <p class="kpi-value kpi-value--text" data-key="top_opening">—</p>
+                    <p class="kpi-sub"><span data-key="top_opening_games">0</span> recorded games</p>
+                </article>
+            </div>
+        </section>
+
+        <!-- Charts zone (clear separation from hero) -->
+        <section id="charts" class="section charts-zone reveal">
+            <span class="section-eyebrow">II · The Analysis</span>
+            <h2 class="section-heading"><span class="section-icon">♜</span> An interactive examination</h2>
+            <p class="section-desc">Click a point or bar for the opening's story.</p>
+
+            <!-- Dropdown filter panel -->
+            <div class="filter-bar glass-3d">
+                <button type="button" class="filter-toggle" id="filterToggle" aria-expanded="false">
+                    <span class="filter-toggle-icon">♟</span>
+                    <span>Refine the selection</span>
+                    <span class="filter-active-count" id="filterActiveCount"></span>
+                    <span class="filter-chevron" id="filterChevron">▼</span>
+                </button>
+                <div class="filter-panel" id="filterPanel">
+                    <div class="filter-grid">
+
+                        <!-- 1. Opening Search -->
+                        <div class="filter-group">
+                            <label class="filter-label" for="searchOpening">
+                                Opening Search
+                                <span class="filter-hint">Full or partial name</span>
+                            </label>
+                            <input type="search" id="searchOpening" class="filter-input"
+                                   placeholder="e.g. Sicilian, French Defense…"
+                                   autocomplete="off" spellcheck="false">
+                        </div>
+
+                        <!-- 2. ECO Opening Family -->
+                        <div class="filter-group">
+                            <label class="filter-label" for="ecoCode">
+                                Opening Family (ECO Code)
+                                <span class="tooltip-host" tabindex="0" aria-describedby="ecoTooltip">
+                                    i
+                                    <span class="filter-tooltip" id="ecoTooltip" role="tooltip">
+                                        ECO codes classify opening families.<br>
+                                        <strong>A00–A99</strong> Flank &amp; other openings<br>
+                                        <strong>B00–B99</strong> Semi-open (incl. Sicilian)<br>
+                                        <strong>C00–C99</strong> Open games &amp; French<br>
+                                        <strong>D00–D99</strong> Closed &amp; Queen's Gambit<br>
+                                        <strong>E00–E99</strong> Indian defences
+                                    </span>
+                                </span>
+                            </label>
+                            <select id="ecoCode" class="filter-input">
+                                <option value="all">All families</option>
+                                {% for eco in meta.eco_codes %}
+                                <option value="{{ eco }}">{{ eco }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- 3. Minimum Games Played -->
+                        <div class="filter-group">
+                            <label class="filter-label" for="minGames">
+                                Minimum Games Played
+                                <span class="filter-val-badge" id="minGamesVal">{{ meta.games_min }}</span>
+                            </label>
+                            <input type="range" id="minGames" class="filter-range"
+                                   min="{{ meta.games_min }}" max="{{ meta.games_max }}"
+                                   value="{{ meta.games_min }}" step="50"
+                                   aria-label="Minimum games played">
+                            <p class="filter-sub">Excludes low-sample openings for reliable statistics.</p>
+                        </div>
+
+                        <!-- 4. Skill Level — full width -->
+                        <div class="filter-group filter-group--full">
+                            <label class="filter-label">
+                                Skill Level
+                                <span class="filter-hint">Filters by average player rating range</span>
+                            </label>
+                            <div class="skill-seg" role="group" aria-label="Skill level filter" id="skillLevel">
+                                <button type="button" class="skill-btn active" data-skill="all">All Players</button>
+                                <button type="button" class="skill-btn" data-skill="beginner">Beginner<span>0 – 1000</span></button>
+                                <button type="button" class="skill-btn" data-skill="intermediate">Intermediate<span>1000 – 1600</span></button>
+                                <button type="button" class="skill-btn" data-skill="advanced">Advanced<span>1600 – 2200</span></button>
+                                <button type="button" class="skill-btn" data-skill="master">Master<span>2200+</span></button>
+                            </div>
+                        </div>
+
+                        <!-- 5. Opening Bias -->
+                        <div class="filter-group">
+                            <label class="filter-label" for="openingBias">
+                                Opening Bias
+                                <span class="tooltip-host" tabindex="0" aria-describedby="biasTooltip">
+                                    i
+                                    <span class="filter-tooltip" id="biasTooltip" role="tooltip">
+                                        <strong>White Favoured</strong> — White win% significantly higher<br>
+                                        <strong>Black Favoured</strong> — Black win% significantly higher<br>
+                                        <strong>Balanced</strong> — Win rates close together<br>
+                                        <strong>Drawish</strong> — Draw percentage ≥ 40%
+                                    </span>
+                                </span>
+                            </label>
+                            <select id="openingBias" class="filter-input">
+                                <option value="all">All Openings</option>
+                                <option value="white_favored">♔ White Favoured</option>
+                                <option value="black_favored">♚ Black Favoured</option>
+                                <option value="balanced">⚖ Balanced</option>
+                                <option value="drawish">½ Drawish</option>
+                            </select>
+                        </div>
+
+                        <!-- Reset — right-aligned in the same row as Opening Bias -->
+                        <div class="filter-group filter-group--actions">
+                            <button type="button" class="btn-neon btn-neon--ghost" id="resetFilters">↺ Reset Filters</button>
+                        </div>
+                    </div>
+                    <div class="quick-list">
+                        <h3>Notable openings in view</h3>
+                        <ul id="openingList"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Comparison Module ──────────────────────────────────── -->
+            <div class="compare-bar glass-3d" id="compareBar">
+                <button type="button" class="filter-toggle" id="compareToggle" aria-expanded="false">
+                    <span class="filter-toggle-icon">⚔</span>
+                    <span>Compare Two Openings</span>
+                    <span class="filter-chevron" id="compareChevron">▼</span>
+                </button>
+                <div class="filter-panel" id="comparePanel">
+                    <div class="compare-selectors">
+                        <div class="compare-selector-wrap">
+                            <label class="filter-label" for="compareA">Opening A</label>
+                            <select id="compareA" class="filter-input compare-select">
+                                <option value="">— select an opening —</option>
+                            </select>
+                        </div>
+                        <div class="compare-vs">VS</div>
+                        <div class="compare-selector-wrap">
+                            <label class="filter-label" for="compareB">Opening B</label>
+                            <select id="compareB" class="filter-input compare-select">
+                                <option value="">— select an opening —</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Comparison panel rendered dynamically -->
+                    <div id="compareResult" class="compare-result" aria-live="polite"></div>
+                </div>
+            </div>
+
+            <div class="chart-stack">
+                <div class="chart-panel glass-3d chart-panel--3d">
+                    <div class="chart-panel__head">
+                        <h3>The strategic space — rating × White's edge × draw rate</h3>
+                        <span class="tag tag--3d">drag to rotate · scroll to zoom</span>
+                    </div>
+                    <div id="chart3d" class="chart-area chart-area--3d plotly-chart"></div>
+                </div>
+
+                <div class="chart-row">
+                    <div class="chart-panel glass-3d">
+                        <div class="chart-panel__head">
+                            <h3>Ten openings most often played</h3>
+                            <span class="tag">popularity</span>
+                        </div>
+                        <div id="chartPopular" class="chart-area plotly-chart"></div>
+                    </div>
+                    <div class="chart-panel glass-3d">
+                        <div class="chart-panel__head">
+                            <h3>Outcomes, in proportion</h3>
+                            <span class="tag">result share</span>
+                        </div>
+                        <div id="chartWinDist" class="chart-area plotly-chart"></div>
+                    </div>
+                </div>
+
+                <div class="chart-panel glass-3d">
+                    <div class="chart-panel__head">
+                        <h3>Win &amp; draw rates — top openings side by side</h3>
+                        <span class="tag">win rate</span>
+                    </div>
+                    <div id="chartWinRates" class="chart-area plotly-chart"></div>
+                </div>
+
+                <div class="chart-panel glass-3d">
+                    <div class="chart-panel__head">
+                        <h3>How the measures move together</h3>
+                        <span class="tag">correlation</span>
+                    </div>
+                    <div id="chartHeatmap" class="chart-area chart-area--heat plotly-chart"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Insights -->
+        <section id="insights" class="section reveal">
+            <span class="section-eyebrow">III · The Commentary</span>
+            <h2 class="section-heading"><span class="section-icon">♝</span> What the numbers say</h2>
+            <p class="section-desc">Observations drawn from the current selection.</p>
+            <div id="insightsGrid" class="insights-grid"></div>
+        </section>
+    </main>
+
+    <!-- Opening modal -->
+    <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true">
+        <div class="modal glass-3d" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalStats" tabindex="-1">
+            <button class="modal-close" id="modalClose" aria-label="Close dialog" type="button">×</button>
+            <div class="modal-board-3d" id="modalBoard3d" aria-hidden="true"></div>
+            <div class="modal-body">
+                <header class="modal-header">
+                    <span class="modal-eco" id="modalEco">—</span>
+                    <h2 id="modalTitle">Opening</h2>
+                </header>
+                <div class="modal-stats" id="modalStats">
+                    <div class="modal-stat"><span>Games</span><strong id="modalGames">—</strong></div>
+                    <div class="modal-stat modal-stat--w"><span>White</span><strong id="modalWhite">—</strong></div>
+                    <div class="modal-stat modal-stat--b"><span>Black</span><strong id="modalBlack">—</strong></div>
+                    <div class="modal-stat modal-stat--d"><span>Draw</span><strong id="modalDraw">—</strong></div>
+                    <div class="modal-stat"><span>Rating</span><strong id="modalRating">—</strong></div>
+                </div>
+                <div class="move-sequence">
+                    <h3>Move Sequence</h3>
+                    <div id="modalMoves" class="move-cards"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script id="dashboard-meta" type="application/json">{{ meta | tojson }}</script>
+    <script id="dashboard-initial" type="application/json">{{ initial | tojson }}</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+            integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu"
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"
+            integrity="sha384-g4NTh/Iv5PPU4xPyhEWqPcwtNXOvdaDI8LLnyYfyNZOjKJeYQyjzQ9X5275eBjpt"
+            crossorigin="anonymous"></script>
+    <script>
+        // Startup validation — if any CDN asset was blocked (network failure or SRI mismatch),
+        // its global will be undefined. Surface a readable banner instead of cryptic crashes.
+        (function () {
+            var missing = [];
+            if (typeof window.Plotly === "undefined") missing.push("Plotly");
+            if (typeof window.THREE === "undefined") missing.push("Three.js");
+            if (typeof window.gsap === "undefined") missing.push("GSAP");
+            if (missing.length === 0) return;
+            window.__chessIQMissing = missing;
+            var banner = document.createElement("div");
+            banner.setAttribute("role", "alert");
+            banner.style.cssText =
+                "position:fixed;top:0;left:0;right:0;z-index:10000;" +
+                "padding:0.85rem 1.2rem;background:#3a1414;color:#f2ece1;" +
+                "border-bottom:1px solid #d4af6a;font-family:Inter,system-ui,sans-serif;" +
+                "font-size:0.9rem;display:flex;gap:1rem;align-items:center;" +
+                "box-shadow:0 4px 18px rgba(0,0,0,0.4);";
+            banner.innerHTML =
+                '<strong style="color:#e8c98a">⚠ Library load failed</strong>' +
+                '<span>The following could not be loaded from CDN: <em>' +
+                missing.join(", ") +
+                '</em>. Charts and 3D scenes may not appear. Check your connection or refresh.</span>' +
+                '<button type="button" aria-label="Dismiss" ' +
+                'style="margin-left:auto;background:transparent;border:1px solid #d4af6a;' +
+                'color:#f2ece1;padding:0.3rem 0.7rem;border-radius:2px;cursor:pointer;font:inherit">Dismiss</button>';
+            banner.querySelector("button").onclick = function () { banner.remove(); };
+            (document.body || document.documentElement).appendChild(banner);
+        })();
+    </script>
+    <script src="/static/scene3d.js"></script>
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>
